@@ -97,15 +97,16 @@ int main(int argc, char *argv[]) {
 		printf("First run detected. Replacing Near with VitaShell...\n");
 	else
 	{
-		printf("Second run detected. Restoring icon layout...\n");
-		
-		sceIoRemove("ux0:iconlayout.ini");
-		cp("ux0:iconlayout.ini", "ux0:data/iconlayout_bak.ini");
+		printf("Second run detected. Restoring app.db in 10 seconds (exit now if you don't want to do this)...\n");
+		sceKernelDelayThread(10 * 1000 * 1000);
+		sceIoRemove("ur0:shell/db/app.db");
+		cp("ur0:shell/db/app.db", "ux0:data/app_db_bak.db");
 		
 		printf("\n\nRebooting in 10 seconds...");
 		sceKernelDelayThread(10 * 1000 * 1000);
 		//sceKernelExitProcess(0);
 		scePowerRequestColdReset();
+		return 0;
 	}
     
     // First run
@@ -182,10 +183,6 @@ int main(int argc, char *argv[]) {
 	sceIoRemove("ux0:data/app_db_bak.db");
 	cp("ux0:data/app_db_bak.db", "ur0:shell/db/app.db");
 	sceIoRemove("ur0:shell/db/app.db");
-	
-	// Back up icon layout file
-	sceIoRemove("ux0:data/iconlayout_bak.ini");
-	cp("ux0:data/iconlayout_bak.ini", "ux0:iconlayout.ini");
 	
 	// Set flag for next run
 	cp("ux0:data/vsoi_flag.flg", "app0:vsoi_flag.flg");
