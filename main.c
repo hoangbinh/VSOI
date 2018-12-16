@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
 	void *buf = malloc(0x100);
 	
 	psvDebugScreenInit();
-    printf("VSOI v0.2\n\n");
+    printf("VSOI v0.3\n\n");
     
     // Second run
     if (sceIoRemove("ux0:data/vsoi_flag.flg") < 0)
@@ -134,20 +134,40 @@ int main(int argc, char *argv[]) {
 	
 	// Remove Near's eboot and copy VitaShell's to that directory
 	SceUID fd;
-	fd = sceIoOpen("app0:vsEboot.bin", SCE_O_RDONLY, 0777);		
-	if (fd >= 0)
-	{
-		printf("Using app0:vsEboot.bin\n");
-		sceIoRemove("vs0:app/NPXS10000/eboot.bin");
-		if (cp("vs0:app/NPXS10000/eboot.bin", "app0:vsEboot.bin") >= 0)
-			printf("Successfully copied eboot to directory!\n");
-		else
-			printf("Error copying eboot to directory!\n");					
-	}
-	else
-	{
-		printf("ERROR: VitaShell eboot not found!\n");
-	}
+    
+    fd = sceIoOpen("ux0:data/vsEboot.bin", SCE_O_RDONLY, 0777);
+    if (fd >= 0)
+    {
+        printf("Using ux0:data/vsEboot.bin");
+        sceIoRemove("vs0:app/NPXS10000/eboot.bin");
+        if (cp("vs0:app/NPXS10000/eboot.bin", "ux0:data/vsEboot.bin"))
+            printf("Successfully copied eboot to directory!\n");
+        else
+            printf("Error copying eboot to directory!\n");
+        
+    }
+    else
+    {
+	    fd = sceIoOpen("app0:vsEboot.bin", SCE_O_RDONLY, 0777);		
+	    if (fd >= 0)
+	    {
+		    printf("Using app0:vsEboot.bin\n");
+		    sceIoRemove("vs0:app/NPXS10000/eboot.bin");
+		    if (cp("vs0:app/NPXS10000/eboot.bin", "app0:vsEboot.bin") >= 0)
+			    printf("Successfully copied eboot to directory!\n");
+		    else
+			    printf("Error copying eboot to directory!\n");					
+	    }
+	    else
+	    {
+		    printf("ERROR: VitaShell eboot not found! Exiting in 5 seconds...\n");
+            sceKernelDelayThread(5 * 1000 * 1000);
+            return 0;
+            
+	    }
+    }
+
+
 	
 	// Back up HENkaku config
 	sceIoRemove("ux0:data/ux0_config.txt");
