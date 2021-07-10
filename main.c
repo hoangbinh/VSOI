@@ -90,127 +90,110 @@ int main(int argc, char *argv[]) {
 	void *buf = malloc(0x100);
 	
 	psvDebugScreenInit();
-    printf("VSOI v0.3\n\n");
+    printf("VSOI v0.4\n\n");
     
-    // Second run
-    if (sceIoRemove("ux0:data/vsoi_flag.flg") < 0)
-		printf("First run detected. Replacing Near with VitaShell...\n");
-	else
+	SceUID fd;
+	fd = sceIoOpen("vs0:app/NPXS10000/eboot.origin", SCE_O_RDONLY, 0777);
+
+	if (fd < 0)
 	{
-		printf("Second run detected. Restoring app.db in 10 seconds (exit now if you don't want to do this)...\n");
-		sceKernelDelayThread(10 * 1000 * 1000);
+		// First run
+		printf("First run detected. Replacing Near with VitaShell...\n");
+    
+		// Mount vs0 as RW
+		printf("Unmounting partition with id 0x%X\n", 0x300); // 0x300 is vs0
+		vshIoUmount(0x300, 0, 0, 0);
+		
+		printf("Mounting partition 0x%X with RW permissions...\n", 0x300);
+		_vshIoMount(0x300, 0, 2, buf);
+	
+		// Copy VitaShell's eboot.bin to vs0:app/NPXS10000/eboot.bin
+		
+		// Backup Near's eboot elsewhere
+		if (cp("vs0:app/NPXS10000/eboot.origin", "vs0:app/NPXS10000/eboot.bin") != 0)
+			printf("Error backing up the eboot.\n");
+		else
+			printf("Eboot backup created.\n");
+	
+		// Remove Near's eboot and copy VitaShell's to that directory
+		fd = sceIoOpen("ux0:data/vsEboot.bin", SCE_O_RDONLY, 0777);
+		if (fd >= 0)
+		{
+			printf("Using ux0:data/vsEboot.bin");
+			sceIoRemove("vs0:app/NPXS10000/eboot.bin");
+			if (cp("vs0:app/NPXS10000/eboot.bin", "ux0:data/vsEboot.bin"))
+				printf("Successfully copied eboot to directory!\n");
+			else
+				printf("Error copying eboot to directory!\n");
+		}
+		else
+		{
+			fd = sceIoOpen("app0:vsEboot.bin", SCE_O_RDONLY, 0777);		
+			if (fd >= 0)
+			{
+				printf("Using app0:vsEboot.bin\n");
+				sceIoRemove("vs0:app/NPXS10000/eboot.bin");
+				if (cp("vs0:app/NPXS10000/eboot.bin", "app0:vsEboot.bin") >= 0)
+					printf("Successfully copied eboot to directory!\n");
+				else
+					printf("Error copying eboot to directory!\n");					
+			}
+			else
+			{
+				printf("ERROR: VitaShell eboot not found! Exiting in 5 seconds...\n");
+				sceKernelDelayThread(5 * 1000 * 1000);
+				return 0;
+			}
+		}
+
+		// Remove app.db and reboot to force db rebuild	
+		printf("Removing app.db...\n");
 		sceIoRemove("ur0:shell/db/app.db");
-		cp("ur0:shell/db/app.db", "ux0:data/app_db_bak.db");
 		
 		printf("\n\nRebooting in 10 seconds...");
 		sceKernelDelayThread(10 * 1000 * 1000);
-		//sceKernelExitProcess(0);
 		scePowerRequestColdReset();
-		return 0;
 	}
-    
-    // First run
-    // Mount vs0 as RW
-	
-	printf("Unmounting partition with id 0x%X\n", 0x300); // 0x300 is vs0
-	vshIoUmount(0x300, 0, 0, 0);
-	
-	printf("Mounting partition 0x%X with RW permissions...\n", 0x300);
-	_vshIoMount(0x300, 0, 2, buf);
-	
-	
-    // Copy VitaShell's eboot.bin to vs0:app/NPXS10000/eboot.bin
-    
-    // Backup Near's eboot elsewhere
-    if (sceIoRemove("ux0:data/nearEboot.bin") < 0) 
-		printf("Backup eboot not found.\n");
 	else
-		printf("Removed existing backup eboot.\n");
-		
-    if (cp("ux0:data/nearEboot.bin", "vs0:app/NPXS10000/eboot.bin") != 0)
-		printf("Error backing up the eboot.\n");
-	else
-		printf("Eboot backup created.\n");
-	
-	// Remove Near's eboot and copy VitaShell's to that directory
-	SceUID fd;
-    
-    fd = sceIoOpen("ux0:data/vsEboot.bin", SCE_O_RDONLY, 0777);
-    if (fd >= 0)
-    {
-        printf("Using ux0:data/vsEboot.bin");
-        sceIoRemove("vs0:app/NPXS10000/eboot.bin");
-        if (cp("vs0:app/NPXS10000/eboot.bin", "ux0:data/vsEboot.bin"))
-            printf("Successfully copied eboot to directory!\n");
-        else
-            printf("Error copying eboot to directory!\n");
-        
-    }
-    else
-    {
-	    fd = sceIoOpen("app0:vsEboot.bin", SCE_O_RDONLY, 0777);		
-	    if (fd >= 0)
-	    {
-		    printf("Using app0:vsEboot.bin\n");
-		    sceIoRemove("vs0:app/NPXS10000/eboot.bin");
-		    if (cp("vs0:app/NPXS10000/eboot.bin", "app0:vsEboot.bin") >= 0)
-			    printf("Successfully copied eboot to directory!\n");
-		    else
-			    printf("Error copying eboot to directory!\n");					
-	    }
-	    else
-	    {
-		    printf("ERROR: VitaShell eboot not found! Exiting in 5 seconds...\n");
-            sceKernelDelayThread(5 * 1000 * 1000);
-            return 0;
-            
-	    }
-    }
-
-
-	
-	// Back up HENkaku config
-	sceIoRemove("ux0:data/ux0_config.txt");
-	sceIoRemove("ux0:data/ur0_config.txt");
-	printf("Backing up HENkaku config...\n");
-	fd = sceIoOpen("ux0:tai/config.txt", SCE_O_RDONLY, 0777);
-	SceUID fdR = sceIoOpen("ur0:tai/config.txt", SCE_O_RDONLY, 0777);
-	if (fd >= 0)
 	{
+		// Second run
+		printf("Second run detected. Restoring Near in 10 seconds (exit now if you don't want to do this)...\n");
+		sceKernelDelayThread(10 * 1000 * 1000);
+
 		sceIoClose(fd);
-		printf("Found HENkaku config in ux0. Backing up.\n");
-		cp("ux0:data/ux0_config.txt", "ux0:tai/config.txt");
-	}
-	else
-	{
-		printf("HENkaku config not found at ux0. Skipping.\n");
-	}
-	if (fdR >= 0)
-	{
-		sceIoClose(fdR);
-		printf("Found HENkaku config in ur0. Backing up.\n");
-		cp("ux0:data/ur0_config.txt", "ur0:tai/config.txt");
-	}
-	else
-	{
-		printf("HENkaku config not found at ur0. Skipping.\n");
-	}	
-	// Remove app.db and reboot to force db rebuild
-	
-	printf("Removing app.db...\n");
-	
-	// Back up app.db before removing
-	sceIoRemove("ux0:data/app_db_bak.db");
-	cp("ux0:data/app_db_bak.db", "ur0:shell/db/app.db");
-	sceIoRemove("ur0:shell/db/app.db");
-	
-	// Set flag for next run
-	cp("ux0:data/vsoi_flag.flg", "app0:vsoi_flag.flg");
 
-	printf("\n\nRebooting in 10 seconds...");
+		// Mount vs0 as RW
+		printf("Unmounting partition with id 0x%X\n", 0x300); // 0x300 is vs0
+		vshIoUmount(0x300, 0, 0, 0);
+		
+		printf("Mounting partition 0x%X with RW permissions...\n", 0x300);
+		_vshIoMount(0x300, 0, 2, buf);
 
-	sceKernelDelayThread(10 * 1000 * 1000);
-	scePowerRequestColdReset();
+		// Restore Near's eboot
+		sceIoRemove("vs0:app/NPXS10000/eboot.bin");
+		if (cp("vs0:app/NPXS10000/eboot.bin", "vs0:app/NPXS10000/eboot.origin") >= 0)
+			printf("Successfully restored eboot to directory!\n");
+		else
+		{
+			printf("Error restoring eboot to directory!\n");
+			sceKernelDelayThread(10 * 1000 * 1000);
+			return 0;
+		}
+
+		// Remove backup eboot
+		if (sceIoRemove("vs0:app/NPXS10000/eboot.origin") < 0) 
+			printf("Backup eboot not found.\n");
+		else
+			printf("Removed existing backup eboot.\n");
+
+		// Remove app.db and reboot to force db rebuild	
+		printf("Removing app.db...\n");
+		sceIoRemove("ur0:shell/db/app.db");
+		
+		printf("\n\nRebooting in 10 seconds...");
+		sceKernelDelayThread(10 * 1000 * 1000);
+		scePowerRequestColdReset();
+	}
 
 	return 0;
 }
